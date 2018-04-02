@@ -1,0 +1,314 @@
+				<!doctype html>
+				<html>
+				<head>
+					<title>Socket.IO chat</title>
+					<style media="screen">
+
+					* { margin: 0; padding: 0; box-sizing: border-box; }
+					html, body {height: 100%; font: 13px Helvetica, Arial; text-align: center;}
+
+
+					#join_form {
+						background: #000;
+						padding: 3px;
+						bottom: 0;
+						width: 100%;
+					}
+
+					#join_form input {
+						border: 0; 
+						padding: 10px; 
+						width: 90%;
+						margin-right: .5%;
+					}
+
+					#join_form button {
+						width: 9%;
+						background: rgb(130, 224, 255);
+						border: none;
+						padding: 10px;
+					}
+
+					#messenger {
+						background: #000;
+						padding: 3px;
+						position: fixed;
+						bottom: 0; width:
+						100%;
+					}
+
+					#messenger input {
+						border: 0;
+						padding: 10px;
+						width: 90%;
+						margin-right: .5%;
+					}
+
+					#messenger button {
+						width: 9%;
+						background: rgb(130, 224, 255);
+						border: none;
+						padding: 10px;
+					}
+
+					#toAll {
+						list-style-type: none;
+						margin: 0;
+						padding: 0;
+					}
+
+					#toAll li {
+						padding-top: 10px;
+						padding-bottom: 10px;
+						text-align: center;
+					}
+
+					#users {
+						list-style-type: none;
+						margin: 0;
+						padding: 0;
+
+					}
+					#users li {
+
+						padding-top: 10px;
+						padding-bottom: 10px;
+						text-align: center; 
+					}
+
+					#messages {
+
+						list-style-type: none;
+						margin: 0;
+						padding: 0;
+
+					}
+
+					#messages li {
+
+						border-bottom: 1px solid grey;
+						padding-top: 10px;
+						padding-bottom: 10px;
+						text-align: center;
+						margin-left: 20px;
+						margin-right: 20px;
+
+					}
+
+					.wrapper {
+
+						display:grid;
+						grid-template-columns:1fr 3fr;
+						grid-gap:1em;
+						grid-auto-rows: minmax(max-content, auto);
+						height:100%;
+
+					}
+
+					.wrapper > div {
+
+						padding: 1em;
+
+					}
+
+					.users {
+						background: #eee;
+					}
+
+					h3 {
+						padding-bottom: 1em;
+					}
+
+					@media only screen and (max-width: 768px) {
+						/* For mobile phones: */
+						.wrapper{
+							grid-template-columns:1fr; 
+							grid-gap:1em;
+							grid-auto-rows: 1fr 5fr;
+						}
+						#messenger input { border: 0; padding: 10px; width: 100%; margin-right: .5%; }
+				  #messenger button { width: 100%; background: rgb(130, 224, 255); border: none; padding: 10px; }
+
+				  #join_form input { border: 0; padding: 10px; width: 100%; margin-right: .5%; }
+				  #join_form button { width: 100%; background: rgb(130, 224, 255); border: none; padding: 10px; }
+
+					}
+
+
+
+
+				</style>
+
+			</head>
+			<title>Simple Chat</title>
+
+			<body>
+				<form id="join_form" value = "">
+					<input id="j" autocomplete="off" value="enter a name to join chat..."/><button>Join</button>
+
+				</form>
+
+				<div class = "wrapper">
+					<div class = "users">
+						<h3>Online Users</h3>
+						<ul id="toAll">
+							<li>Send To All</li>
+						</ul>
+						<ul id="users">
+
+						</ul>
+					</div>
+					<div class = "messages">
+						<ul id="messages"></ul>
+
+					</div>
+
+					<form id="messenger" value = "">
+						<input id="m" autocomplete="off" value="enter a message"/><button>Send</button>
+					</form>
+				</div>
+
+				<script src="/socket.io/socket.io.js"></script>
+				<script src="https://code.jquery.com/jquery-1.11.1.js"></script>
+				<script>
+
+					$(function () {
+
+				      // --   Variables   -- // 
+				      // -- initialise socket for client connection		
+				      const socket = io();
+				      var connected_users = 0;
+				      var private_message = false;
+				      // -- target user for private message
+				      var target_user_id;
+				      
+				      // emit message attempt upon user submit
+				      $('#messenger').submit(function(e){
+				      	//determine if private message
+				      	if (private_message) {
+				      		//if true send private message to target	
+				      		socket.emit('private chat message', {message: $('#m').val(), to: target_user_id});
+				      		$('#m').val('');	
+				      	}
+				      		//else send message to everyone
+				      		else {
+				      			socket.emit('chat message', $('#m').val());
+				      			$('#m').val('');
+				      		}
+				      		return false;
+				      	});
+
+				      socket.on('chat message', function(msg) {
+				      	if(msg == false) {
+				      		return;
+				      	}
+				      	else {
+				          //append message to messages		
+				          $('#messages').append($('<li>').text(msg));
+				      }
+				  });
+
+				      $('#join_form').submit(function(e){
+				      	socket.emit('join chat', $('#j').val());
+				      	return false;
+				      });
+
+				      socket.on('show connected users', function(user_list){
+				      	//update number of connected users
+				      	connected_users = user_list.length;
+				      	for (i = 0; i < user_list.length; i++) {
+				      		$('#users').append($('<li id = '+ i +'>').text(user_list[i]));
+				      	}
+				      }); 
+
+				      socket.on('join chat', function(newuser){
+
+				      	if (newuser == false) {
+				      		alert("name must: \n -> be at least 3 characters long \n -> not contain space characters \n -> not already be taken");	
+				      		return;
+				      	}
+				      	else {
+				          //notify all users of new user	
+				          $('#messages').append($('<li>').text(newuser.username + " has joined the chat"));
+				          //list item to add, with id
+				          let list_item = $('<li id =' + connected_users + '>');
+				          //update number of connected users
+				          connected_users += 1;
+				          list_item.text(newuser.username);
+				          $('#users').append(list_item);
+				      }
+				  }); 
+
+				      //
+				      socket.on('add user chat', function(user) {
+				      	//TOTO tidy, 
+				      	let list_item = $('<li id = ' + connected_users + '>');
+				      	list_item.text(user.username);
+				      	$('#users').append(list_item);
+				      	connected_users = user.number_of_users;
+				      	return;
+				      });
+
+				      socket.on('disconnect', function(o){
+				      	let list = o.userList;
+				      	let index = o.index + 1;
+				      	$('#messages').append($('<li>').text(o.user + " has disconnected"));
+				      	$('#users').empty();
+
+				      	for (i = 0; i < list.length; i++) {
+				      		$('#users').append($('<li id = '+ i +'>').text(list[i]));
+				      	}
+				      	connected_users = list.length;
+				      });
+
+				      socket.on('close join box', function() {
+				      	$('#join_form').slideUp(1500);
+				      });
+
+				       //-- Jquery Static event handlers
+
+				       //on mouse enter change background colour
+				       $('#users').on("mouseenter", "li", function() {
+				       	$(this).css("background-color", "white");
+				       });
+
+					   //on mouse leave change colour to white
+					   $('#users').on("mouseleave", "li", function() {
+					   	$(this).css("background-color", "#eee");
+					   });
+
+			           //on list item click set private message toggle true
+			           $('#users').on("click", "li", function() {
+			           	if (private_message) {
+			           		private_message = false;
+			           		$('#m').val('');
+			           	}
+			           	else {
+			           		private_message = true;
+			           		$('#m').val('send message to: ' + $(this).attr('id'));
+			           	}
+			           	target_user_id = $(this).attr('id');
+			           });
+
+			           //on mouse enter change background colour
+			           $('#toAll').on("mouseenter", "li", function() {
+			           	$(this).css("background-color", "white");
+			           });
+
+					   //on mouse leave change colour to white
+					   $('#toAll').on("mouseleave", "li", function() {
+					   	$(this).css("background-color", "#eee");
+					   });
+
+			           //on list item click set private message toggle true
+			           $('#toAll').on("click", "li", function() {
+			           	private_message = false;
+			           	$('#m').val('send to all');
+			           });
+			           
+
+			       });
+			   </script>
+
+			</body>
+			</html>
